@@ -1,4 +1,4 @@
-Package: kernle-haibo
+Package: kernel-haibo
 Version: 2020-09-21
 Priority: optional
 Architecture: arm64
