@@ -1,9 +1,0 @@
-Package: kernel-haibo
-Version: 2020-09-21
-Priority: optional
-Architecture: arm64
-Installed-Size: 66666
-Maintainer: qiaoshouxing
-Description: kernel image and modules
-
-

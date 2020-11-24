@@ -16,12 +16,14 @@ CUR_DIR=`pwd`
 OUT_DIR="${CUR_DIR}/out"
 KERNEL_DIR=""
 ARM_TRUSTED_FIRMWARE_DIR=""
-SUFFIX=`date +"%Y%m%d%H%M"`
-KERNELRELEASE="4.9.37-${SUFFIX}"
+#SUFFIX=`date +"%Y%m%d%H%M"`
+TAG=1.0
+KERNELRELEASE="4.9.37-${TAG}"
 
 tmpdir="${OUT_DIR}/tmp"
 kernel_headers_dir="${OUT_DIR}/hdrtmp"
 libc_headers_dir="${OUT_DIR}/headertmp"
+debian_dir="${OUT_DIR}/debian"
 
 
 version=4.9.37
@@ -47,8 +49,8 @@ create_package() {
 
 	mkdir -m 755 -p "$pdir/DEBIAN"
 	mkdir -p "$pdir/usr/share/doc/$pname"
-	cp ${CUR_DIR}/debian/copyright "$pdir/usr/share/doc/$pname/"
-	cp ${CUR_DIR}/debian/changelog "$pdir/usr/share/doc/$pname/changelog.Debian"
+	cp ${debian_dir}/copyright "$pdir/usr/share/doc/$pname/"
+	cp ${debian_dir}/changelog "$pdir/usr/share/doc/$pname/changelog.Debian"
 	gzip -9 "$pdir/usr/share/doc/$pname/changelog.Debian"
 	sh -c "cd '$pdir'; find . -type f ! -path './DEBIAN/*' -printf '%P\0' \
 		| xargs -r0 md5sum > DEBIAN/md5sums"
@@ -61,7 +63,7 @@ create_package() {
 
 	# Create the package
 	dpkg-gencontrol $forcearch -Vkernel:debarch="${debarch}" -p$pname -P"$pdir"
-	dpkg --build "$pdir" .
+	dpkg --build "$pdir" ..
 }
 
 param_check() {
@@ -90,9 +92,6 @@ prepare_debian_files() {
     rm -rf ${OUT_DIR}
     mkdir -pv ${kernel_headers_dir}
     mkdir -pv ${libc_headers_dir}
-
-    debian_dir=${CUR_DIR}/debian
-    rm -rf ${debian_dir}
     mkdir -pv ${debian_dir}
 
     # Generate a simple changelog template
@@ -105,7 +104,7 @@ $sourcename ($packageversion) $distribution; urgency=low
 EOF
 
     # Generate copyright file
-    cat <<EOF > debian/copyright
+    cat <<EOF > ${debian_dir}/copyright
 This is a packacked upstream version of the Linux kernel.
 
 The sources may be found at most Linux ftp sites, including:
@@ -126,7 +125,7 @@ EOF
 
 
     # Generate a control file
-    cat <<EOF > debian/control
+    cat <<EOF > ${debian_dir}/control
 Source: $sourcename
 Section: kernel
 Priority: optional
@@ -136,7 +135,7 @@ Standards-Version: 4.9.37
 Homepage: http://www.kernel.org/
 EOF
 
-	cat <<EOF >> debian/control
+	cat <<EOF >> ${debian_dir}/control
 
 Package: $packagename
 Provides: linux-image, linux-image-2.6, linux-modules-${KERNELRELEASE}
@@ -147,7 +146,7 @@ Description: Linux kernel, version ${KERNELRELEASE}
 EOF
 
 
-    cat <<EOF >> debian/control
+    cat <<EOF >> ${debian_dir}/control
 
 Package: $kernel_headers_packagename
 Provides: linux-headers, linux-headers-2.6
@@ -158,7 +157,7 @@ Description: Linux kernel headers for $KERNELRELEASE on \${kernel:debarch}
  This is useful for people who need to build external modules
 EOF
 
-    cat <<EOF >> debian/control
+    cat <<EOF >> ${debian_dir}/control
 
 Package: $libc_headers_packagename
 Section: devel
@@ -170,15 +169,7 @@ Description: Linux support headers for userspace development
 EOF
 
 
-
-    if [ ! -d ${debian_dir} ]; then
-        log "Can't find DEBIAN files, please check current path!"
-        return 1
-    fi 
-    cp -a ${debian_dir} ${OUT_DIR}/
-    sed -i "/Version:/s/Version:.*/Version: ${SUFFIX}/" ${OUT_DIR}/DEBIAN/control
-
-    log "copy DEBIAN finished"
+    log "prepare DEBIAN finished"
 
     return 0
 }
@@ -229,29 +220,29 @@ install_kernel_headers() {
 	make ARCH=arm64 CROSS_COMPILE=aarch64-himix100-linux- INSTALL_HDR_PATH="$libc_headers_dir/usr"  headers_install
 
     # 从内核源码目录搜集编译模块用的文件：头文件、makefile文件、工具、链接文件、Kconfig文件、符号表等
-    find . -name Makefile\* -o -name Kconfig\* -o -name \*.pl > "${CUR_DIR}/debian/hdrsrcfiles"
-    find arch/*/include include scripts -type f >> "${CUR_DIR}/debian/hdrsrcfiles"
-    find arch/arm64 -name module.lds -o -name Kbuild.platforms -o -name Platform >> "${CUR_DIR}/debian/hdrsrcfiles"
-    find $(find arch/arm64 -name include -o -name scripts -type d) -type f >> "${CUR_DIR}/debian/hdrsrcfiles"
-    find tools/include -type f >> "${CUR_DIR}/debian/hdrsrcfiles"
+    find . -name Makefile\* -o -name Kconfig\* -o -name \*.pl > "${debian_dir}/hdrsrcfiles"
+    find arch/*/include include scripts -type f >> "${debian_dir}/hdrsrcfiles"
+    find arch/arm64 -name module.lds -o -name Kbuild.platforms -o -name Platform >> "${debian_dir}/hdrsrcfiles"
+    find $(find arch/arm64 -name include -o -name scripts -type d) -type f >> "${debian_dir}/hdrsrcfiles"
+    find tools/include -type f >> "${debian_dir}/hdrsrcfiles"
     if grep -q '^CONFIG_STACK_VALIDATION=y' .config ; then
-        find tools/objtool -type f -executable >> "${CUR_DIR}/debian/hdrobjfiles"
+        find tools/objtool -type f -executable >> "${debian_dir}/hdrobjfiles"
     fi
-    find arch/arm64/include Module.symvers include scripts -type f >> "${CUR_DIR}/debian/hdrobjfiles"
+    find arch/arm64/include Module.symvers include scripts -type f >> "${debian_dir}/hdrobjfiles"
     if grep -q '^CONFIG_GCC_PLUGINS=y' .config ; then
-        find scripts/gcc-plugins -name \*.so -o -name gcc-common.h >> "${CUR_DIR}/debian/hdrobjfiles"
+        find scripts/gcc-plugins -name \*.so -o -name gcc-common.h >> "${debian_dir}/hdrobjfiles"
     fi
     popd
 
     # 搜集的文件进行打包集中放到目标文件夹中
     destdir=$kernel_headers_dir/usr/src/linux-headers-${KERNELRELEASE}
     mkdir -p "$destdir"
-    (cd ${KERNEL_DIR}; tar -c -f - -T -) < "${CUR_DIR}/debian/hdrsrcfiles" | (cd $destdir; tar -xf -)
-    (cd ${KERNEL_DIR}; tar -c -f - -T -) < "${CUR_DIR}/debian/hdrobjfiles" | (cd $destdir; tar -xf -)
+    (cd ${KERNEL_DIR}; tar -c -f - -T -) < "${debian_dir}/hdrsrcfiles" | (cd $destdir; tar -xf -)
+    (cd ${KERNEL_DIR}; tar -c -f - -T -) < "${debian_dir}/hdrobjfiles" | (cd $destdir; tar -xf -)
     (cp ${KERNEL_DIR}/.config $destdir/.config) # copy .config manually to be where it's expected to be
     mkdir -p "$kernel_headers_dir/lib/modules/$version/"
     ln -sf "/usr/src/linux-headers-${KERNELRELEASE}" "$kernel_headers_dir/lib/modules/$version/build"
-    rm -f "${CUR_DIR}/debian/hdrsrcfiles" "${CUR_DIR}/debian/hdrobjfiles"
+    rm -f "${debian_dir}/hdrsrcfiles" "${debian_dir}/hdrobjfiles"
 
 
     log "install kernel header files finished"
@@ -285,9 +276,11 @@ install_kernel_headers
 
 
 # 编译debian软件包
+pushd ${OUT_DIR}
 create_package "$packagename" "$tmpdir"
 create_package "$kernel_headers_packagename" "$kernel_headers_dir"
 create_package "$libc_headers_packagename" "$libc_headers_dir"
+popd
 
 log "success!!!!!"
 
