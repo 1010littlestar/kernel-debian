@@ -233,6 +233,7 @@ install_kernel_headers() {
     find arch/*/include include scripts -type f >> "${CUR_DIR}/debian/hdrsrcfiles"
     find arch/arm64 -name module.lds -o -name Kbuild.platforms -o -name Platform >> "${CUR_DIR}/debian/hdrsrcfiles"
     find $(find arch/arm64 -name include -o -name scripts -type d) -type f >> "${CUR_DIR}/debian/hdrsrcfiles"
+    find tools/include -type f >> "${CUR_DIR}/debian/hdrsrcfiles"
     if grep -q '^CONFIG_STACK_VALIDATION=y' .config ; then
         find tools/objtool -type f -executable >> "${CUR_DIR}/debian/hdrobjfiles"
     fi
