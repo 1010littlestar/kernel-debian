@@ -282,6 +282,8 @@ create_package "$kernel_headers_packagename" "$kernel_headers_dir"
 create_package "$libc_headers_packagename" "$libc_headers_dir"
 popd
 
+md5sum "$pakagename*" "$kernel_headers_packagename*" "${libc_headers_packagename}*" > md5
+
 log "success!!!!!"
 
 exit 0
