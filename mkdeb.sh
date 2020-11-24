@@ -138,7 +138,7 @@ EOF
 	cat <<EOF >> ${debian_dir}/control
 
 Package: $packagename
-Provides: linux-image, linux-image-2.6, linux-modules-${KERNELRELEASE}
+Provides: linux-image, linux-image-2.6, linux-modules-${KERNELRELEASE}, $packagename
 Architecture: any
 Description: Linux kernel, version ${KERNELRELEASE}
  This package contains the Linux kernel, modules and corresponding other
@@ -149,7 +149,7 @@ EOF
     cat <<EOF >> ${debian_dir}/control
 
 Package: $kernel_headers_packagename
-Provides: linux-headers, linux-headers-2.6
+Provides: linux-headers, linux-headers-2.6, $kernel_headers_packagename
 Architecture: any
 Description: Linux kernel headers for $KERNELRELEASE on \${kernel:debarch}
  This package provides kernel header files for $KERNELRELEASE on \${kernel:debarch}
